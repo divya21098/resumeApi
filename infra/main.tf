@@ -71,7 +71,7 @@ data "archive_file" "zip_the_python_code" {
 
 resource "aws_s3_bucket" "serverless_bucket" {
 
-  bucket = "divya-bucket210"
+  bucket = "divyabucket0210"
   
 }
 
