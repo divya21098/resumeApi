@@ -71,11 +71,8 @@ data "archive_file" "zip_the_python_code" {
 
 resource "aws_s3_bucket" "serverless_bucket" {
 
-  bucket = "serverless-divya-bucket"
-  tags = {
-    Name        = "serverless-divya-bucket"
-    Environment = "dev"
-  }
+  bucket = "divya-bucket210"
+  
 }
 
 resource "aws_s3_object" "serverless_bucket_object" {
