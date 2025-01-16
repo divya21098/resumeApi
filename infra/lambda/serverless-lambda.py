@@ -65,9 +65,6 @@ def get_movies_by_year(yr, movies):
     return [movie for movie in movies if movie.get('Year') == yr]
 
 def lambda_handler(event, context):
-    """
-    Lambda entry point.
-    """
     try:
         # Get the year from the event query parameters
         year = event.get('queryStringParameters', {}).get('Year')

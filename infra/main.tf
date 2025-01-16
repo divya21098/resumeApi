@@ -71,9 +71,9 @@ data "archive_file" "zip_the_python_code" {
 
 resource "aws_s3_bucket" "serverless_bucket" {
 
-  bucket = "serverless-resume-bucket"
+  bucket = "serverless-divya-bucket"
   tags = {
-    Name        = "serverless-resume-bucket"
+    Name        = "serverless-divya-bucket"
     Environment = "dev"
   }
 }
