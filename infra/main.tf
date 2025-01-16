@@ -71,17 +71,14 @@ data "archive_file" "zip_the_python_code" {
 
 resource "aws_s3_bucket" "serverless_bucket" {
 
-  bucket = "serverless-resume-bucket"
-  tags = {
-    Name        = "serverless-resume-bucket"
-    Environment = "dev"
-  }
+  bucket = "divyabucket0210"
+  
 }
 
 resource "aws_s3_object" "serverless_bucket_object" {
   bucket = aws_s3_bucket.serverless_bucket.id
-  key    = "resume.json"
-  source = "${path.module}/resume.json"
+  key    = "movie.json"
+  source = "${path.module}/movie.json"
 }
 
 resource "aws_api_gateway_rest_api" "my-api-gw" {
