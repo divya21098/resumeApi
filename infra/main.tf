@@ -1,4 +1,4 @@
-resource "aws_lambda_function" "myfunc" {
+resource "aws_lambda_function" "movies_lambda" {
   filename         = data.archive_file.zip_the_python_code.output_path
   source_code_hash = data.archive_file.zip_the_python_code.output_base64sha256
   function_name    = "serverless-lambda"
