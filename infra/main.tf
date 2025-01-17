@@ -2,7 +2,7 @@ resource "aws_lambda_function" "movies_lambda" {
   filename         = data.archive_file.zip_the_python_code.output_path
   source_code_hash = data.archive_file.zip_the_python_code.output_base64sha256
   function_name    = "serverless-lambda"
-  role             = aws_iam_role.lambda_role.arn
+  role             = aws_iam_role.lambda_execution_role.arn
   handler          = "serverless-lambda.lambda_handler"
   runtime          = "python3.9"
 }
