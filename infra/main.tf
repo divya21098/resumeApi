@@ -43,6 +43,16 @@ resource "aws_iam_policy" "lambda_policy" {
         Action   = ["dynamodb:*", "logs:*"]
         Effect   = "Allow"
         Resource = "*"
+      },
+       {
+        Action   = "lambda:InvokeFunction"
+        Effect   = "Allow"
+        Resource = aws_lambda_function.movies_lambda.arn
+        Condition = {
+          ArnLike = {
+            "aws:SourceArn" = "${aws_api_gateway_rest_api.movies_api.execution_arn}/*/*"
+          }
+        }
       }
     ]
   })
