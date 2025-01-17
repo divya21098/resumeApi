@@ -13,7 +13,11 @@ jobs:
     defaults:
       run:
         working-directory: ./infra
-
+    
+    env:
+      AWS_REGION: us-west-2
+      DYNAMODB_TABLE: Movies-API
+      
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -35,7 +39,6 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
         
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -43,3 +46,23 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          
+      - name: Load Data to DynamoDB
+        run: |
+          python3 <<EOF
+          import boto3
+          import json
+
+          dynamodb = boto3.resource('dynamodb', region_name='${{ env.AWS_REGION }}')
+          table = dynamodb.Table('${{ env.DYNAMODB_TABLE }}')
+
+          with open('movies.json', 'r') as file:
+              movies = json.load(file)
+
+          with table.batch_writer() as batch:
+              for movie in movies:
+                  if 'title' in movie:
+                      batch.put_item(Item=movie)
+
+          print("Data successfully loaded to DynamoDB")
+          EOF
