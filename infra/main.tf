@@ -19,7 +19,7 @@ resource "aws_dynamodb_table" "movies_table" {
 }
 
 # IAM role for Lambda
-resource "aws_iam_role" "lambda_role" {
+resource "aws_iam_role" "lambda_execution_role" {
   name               = "lambda_execution_role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -34,47 +34,46 @@ resource "aws_iam_role" "lambda_role" {
 }
 
 # IAM policy for Lambda
-resource "aws_iam_policy" "lambda_policy" {
-  name   = "lambda_policy"
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action   = ["dynamodb:*", "logs:*"]
-        Effect   = "Allow"
-        Resource = "*"
-      },
-       {
-        Action   = "lambda:InvokeFunction"
-        Effect   = "Allow"
-        Resource = aws_lambda_function.movies_lambda.arn
-        Condition = {
-          ArnLike = {
-            "aws:SourceArn" = "${aws_api_gateway_rest_api.movies_api.execution_arn}/*/*"
-          }
-        }
-      }
-    ]
-  })
+resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
+  role       = aws_iam_role.lambda_execution_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
+
+resource "aws_iam_role_policy_attachment" "dynamo_db_read_access" {
+  role       = aws_iam_role.lambda_execution_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "api_gateway_invoke" {
+  role       = aws_iam_role.lambda_execution_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonAPIGatewayInvokeFullAccess"
+}
+
 
 # Attach policy to role
-resource "aws_iam_role_policy_attachment" "lambda_role_policy_attachment" {
-  role       = aws_iam_role.lambda_role.name
-  policy_arn = aws_iam_policy.lambda_policy.arn
-}
+
 # API Gateway
+# Create the API Gateway to connect to the Lambda function
 resource "aws_api_gateway_rest_api" "movies_api" {
-  name        = "serverlessAPI"
-  description = "API Gateway for Movies Lambda"
+  name        = "Movies API"
+  description = "API Gateway to trigger Lambda functions for getting movies"
 }
 
+# Create the /get_movies resource
 resource "aws_api_gateway_resource" "get_movies_resource" {
   rest_api_id = aws_api_gateway_rest_api.movies_api.id
   parent_id   = aws_api_gateway_rest_api.movies_api.root_resource_id
   path_part   = "get_movies"
 }
 
+# Create the /get_movies_by_year resource
+resource "aws_api_gateway_resource" "get_movies_by_year_resource" {
+  rest_api_id = aws_api_gateway_rest_api.movies_api.id
+  parent_id   = aws_api_gateway_rest_api.movies_api.root_resource_id
+  path_part   = "get_movies_by_year"
+}
+
+# Create GET method for /get_movies
 resource "aws_api_gateway_method" "get_movies_method" {
   rest_api_id   = aws_api_gateway_rest_api.movies_api.id
   resource_id   = aws_api_gateway_resource.get_movies_resource.id
@@ -82,27 +81,70 @@ resource "aws_api_gateway_method" "get_movies_method" {
   authorization = "NONE"
 }
 
+# Integrate GET /get_movies with the Lambda function
 resource "aws_api_gateway_integration" "get_movies_integration" {
   rest_api_id             = aws_api_gateway_rest_api.movies_api.id
   resource_id             = aws_api_gateway_resource.get_movies_resource.id
   http_method             = aws_api_gateway_method.get_movies_method.http_method
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
-  uri                     = aws_lambda_function.movies_lambda.invoke_arn
+  uri                     = "arn:aws:apigateway:us-west-1:lambda:path/2015-03-31/functions/${aws_lambda_function.movies_lambda.arn}/invocations"
 }
 
-resource "aws_lambda_permission" "apigateway_lambda_permission" {
-  statement_id  = "AllowExecutionFromAPIGateway"
+# Create GET method for /get_movies_by_year
+resource "aws_api_gateway_method" "get_movies_by_year_method" {
+  rest_api_id   = aws_api_gateway_rest_api.movies_api.id
+  resource_id   = aws_api_gateway_resource.get_movies_by_year_resource.id
+  http_method   = "GET"
+  authorization = "NONE"
+}
+
+# Integrate GET /get_movies_by_year with the Lambda function
+resource "aws_api_gateway_integration" "get_movies_by_year_integration" {
+  rest_api_id             = aws_api_gateway_rest_api.movies_api.id
+  resource_id             = aws_api_gateway_resource.get_movies_by_year_resource.id
+  http_method             = aws_api_gateway_method.get_movies_by_year_method.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = "arn:aws:apigateway:us-west-1:lambda:path/2015-03-31/functions/${aws_lambda_function.movies_lambda.arn}/invocations"
+}
+
+# Grant API Gateway permission to invoke Lambda
+resource "aws_lambda_permission" "allow_api_gateway_get_movies" {
+  statement_id  = "AllowAPIGatewayInvokeGetMovies"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.movies_lambda.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_api_gateway_rest_api.movies_api.execution_arn}/*/*"
+  function_name = aws_lambda_function.movies_lambda.function_name
+  source_arn    = "${aws_api_gateway_rest_api.movies_api.execution_arn}/*/GET/get_movies"
 }
 
-resource "aws_api_gateway_deployment" "api_deployment" {
+resource "aws_lambda_permission" "allow_api_gateway_get_movies_by_year" {
+  statement_id  = "AllowAPIGatewayInvokeGetMoviesByYear"
+  action        = "lambda:InvokeFunction"
+  principal     = "apigateway.amazonaws.com"
+  function_name = aws_lambda_function.movies_lambda.function_name
+  source_arn    = "${aws_api_gateway_rest_api.movies_api.execution_arn}/*/GET/get_movies_by_year"
+}
+
+# Deploy the API
+resource "aws_api_gateway_deployment" "movies_api_deployment" {
+  depends_on = [
+    aws_api_gateway_integration.get_movies_integration,
+    aws_api_gateway_integration.get_movies_by_year_integration
+  ]
+
   rest_api_id = aws_api_gateway_rest_api.movies_api.id
   stage_name  = "prod"
 }
+
+output "api_gateway_invoke_url" {
+  value = "https://${aws_api_gateway_rest_api.movies_api.id}.execute-api.us-west-1.amazonaws.com/prod"
+}
+
+# resource "aws_api_gateway_deployment" "api_deployment" {
+#   rest_api_id = aws_api_gateway_rest_api.movies_api.id
+#   stage_name  = "prod"
+# }
 # resource "aws_iam_role" "iam_for_lambda" {
 #   name = "iam_for_lambda"
 
