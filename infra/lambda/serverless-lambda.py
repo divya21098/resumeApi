@@ -1,11 +1,94 @@
 import json
 import boto3
+from boto3.dynamodb.conditions import Key, Attr
+
 # import requests
 # s3_client = boto3.client('s3')
 
-BUCKET_NAME = 'serverless-resume-bucket'
-RESUME_FILE_KEY = 'resume.json'
+# BUCKET_NAME = 'serverless-resume-bucket'
+# RESUME_FILE_KEY = 'resume.json'
 
+dynamodb = boto3.resource('dynamodb', region_name='us-west-1')
+table = dynamodb.Table('Movies-API')
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+def lambda_handler(event, context):
+    logger.info("Received event: %s", json.dumps(event))
+    
+    try:
+        if 'requestContext' not in event:
+            raise KeyError('requestContext')
+
+        # Handling HTTP API format
+        if 'http' in event['requestContext']:
+            path = event['rawPath']
+            method = event['requestContext']['http']['method']
+        # Handling REST API format
+        else:
+            path = event['path']
+            method = event['httpMethod']
+        
+    except KeyError as e:
+        logger.error("KeyError: %s", str(e))
+        return {
+            'statusCode': 400,
+            'body': json.dumps(f'Bad Request: Missing key in event: {str(e)}')
+        }
+    
+    if path == '/get_movies' and method == 'GET':
+        return get_movies()
+    elif path == '/getmoviesbyyear' and method == 'GET':
+        query_params = event.get('queryStringParameters', {})
+        year = query_params.get('year')
+        if year:
+            return get_movies_by_year(year)
+        else:
+            return {
+                'statusCode': 400,
+                'body': json.dumps('Bad Request: Missing query parameter "year"')
+            }
+    else:
+        return {
+            'statusCode': 404,
+            'body': 'Not Found'
+        }
+
+
+def get_movies():
+    try:
+        response = table.scan()
+        movies = response.get('Items', [])
+        # Convert Decimal to int for JSON serialization
+        for movie in movies:
+            movie['year'] = int(movie['year'])
+        return {
+            'statusCode': 200,
+            'body': json.dumps(movies)
+        }
+    except Exception as e:
+        return {
+            'statusCode': 500,
+            'body': f'Error Fetching Movies: {str(e)}'
+        }
+
+
+def get_movies_by_year(year):
+    try:
+        response = table.scan(FilterExpression=Attr('year').eq(int(year)))
+        movies = response.get('Items', [])
+        # Convert Decimal to int for JSON serialization
+        for movie in movies:
+            movie['year'] = int(movie['year'])
+        return {
+            'statusCode': 200,
+            'body': json.dumps(movies)
+        }
+    except Exception as e:
+        return {
+            'statusCode': 500,
+            'body': f'Error getting movies for the year {year}: {str(e)}'
+        }
 # def get_movies():
 #     try:
 #         with open('resume.json') as f:
@@ -42,68 +125,9 @@ RESUME_FILE_KEY = 'resume.json'
 #     print(movie_by_year)
 # if __name__ == "__main__":
 #     main()
-def get_movies():
-    """
-    Fetch and parse the JSON file from S3.
-    """
-    try:
-        response = s3.get_object(Bucket=BUCKET_NAME, Key=FILE_KEY)
-        content = response['Body'].read().decode('utf-8')
-        movies = json.loads(content)
-        return movies
-    except s3.exceptions.NoSuchKey:
-        return {"error": f"File '{FILE_KEY}' not found in bucket '{BUCKET_NAME}'"}
-    except json.JSONDecodeError:
-        return {"error": f"Malformed JSON in file '{FILE_KEY}'"}
-    except Exception as e:
-        return {"error": str(e)}
-
-def get_movies_by_year(yr, movies):
-    """
-    Filter movies by the given year.
-    """
-    return [movie for movie in movies if movie.get('Year') == yr]
-
-def lambda_handler(event, context):
-    try:
-        # Get the year from the event query parameters
-        year = event.get('queryStringParameters', {}).get('Year')
-        if not year:
-            return {
-                "statusCode": 400,
-                "body": json.dumps({"error": "Year parameter is required"})
-            }
-
-        # Convert year to integer
-        year = str(year)
-
-        # Fetch movies
-        movies = get_movies()
-
-        # If there's an error in fetching movies, return it
-        if isinstance(movies, dict) and "error" in movies:
-            return {
-                "statusCode": 500,
-                "body": json.dumps(movies)
-            }
-
-        # Get movies by year
-        movies_by_year = get_movies_by_year(year, movies)
-
-        # Return results
-        return {
-            "statusCode": 200,
-            "body": json.dumps({"movies": movies_by_year})
-        }
-
-    except Exception as e:
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
 
 # def lambda_handler(event, context):
-#     try:
+#     try
 #          response = s3_client.get_object(Bucket=BUCKET_NAME, Key=RESUME_FILE_KEY)
 #          resume_data = json.loads(response['Body'].read().decode('utf-8'))
         
