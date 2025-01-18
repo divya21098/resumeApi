@@ -55,8 +55,9 @@ jobs:
 
           dynamodb = boto3.resource('dynamodb', region_name='${{ env.AWS_REGION }}')
           table = dynamodb.Table('${{ env.DYNAMODB_TABLE }}')
+          file_path = os.path.join('infra', 'movies.json')
 
-          with open('movies.json', 'r') as file:
+          with open(file_path, 'r') as file:
               movies = json.load(file)
 
           with table.batch_writer() as batch:
