@@ -52,6 +52,7 @@ jobs:
           python3 <<EOF
           import boto3
           import json
+          import os
 
           dynamodb = boto3.resource('dynamodb', region_name='${{ env.AWS_REGION }}')
           table = dynamodb.Table('${{ env.DYNAMODB_TABLE }}')
