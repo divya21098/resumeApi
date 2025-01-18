@@ -50,8 +50,7 @@ jobs:
         run: |
           echo "Current Directory:"
           ls -al
-          echo "Infra Folder Contents:"
-          ls -al infra
+          
       - name: Load Data to DynamoDB
         run: |
           python3 <<EOF
