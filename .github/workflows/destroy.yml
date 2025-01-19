@@ -1,0 +1,61 @@
+name: Destroy AWS Resources
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type 'destroy' to confirm resource destruction"
+        required: true
+
+jobs:
+  terraform-destroy:
+    runs-on: ubuntu-latest
+    if: ${{ inputs.confirmation == 'destroy' }}
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: us-west-2
+
+    steps:
+      # Checkout the code
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # Restore Terraform State File
+      - name: Restore Terraform State
+        uses: actions/cache@v3
+        id: state-cache
+        with:
+          path: terraform.tfstate
+          key: terraform-state-${{ github.ref }}
+
+      # Setup Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+
+      # Initialize Terraform
+      - name: Terraform Init
+        run: terraform init
+
+      # Plan Terraform Destroy
+      - name: Terraform Plan Destroy
+        id: plan
+        run: terraform plan -destroy -out=tfplan
+
+      # Show Planned Destroy Resources
+      - name: Show Planned Changes
+        run: terraform show tfplan
+
+      # Apply Terraform Destroy
+      - name: Terraform Destroy
+        run: terraform apply -auto-approve tfplan
+
+      # Save Updated State File
+      - name: Cache Updated State File
+        uses: actions/cache@v3
+        with:
+          path: terraform.tfstate
+          key: terraform-state-${{ github.ref }}
